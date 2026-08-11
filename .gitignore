@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Results / outputs
+agentlab_results/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Result directories (large files)
+Task-Injection/agentdojo/res/
+SHADE_Arena/universe_related_stuff/
+
+# Temporary
+*.log
+*.tmp
