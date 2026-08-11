@@ -447,11 +447,11 @@ def build_ui():
                     with gr.Column(scale=1):
                         gr.Markdown("### 🎯 攻击参数")
                         num_samples = gr.Slider(
-                            minimum=1, maximum=200, value=1, step=1,
+                            minimum=1, maximum=200, value=10, step=1,
                             label="样本数量"
                         )
                         max_turns = gr.Slider(
-                            minimum=1, maximum=20, value=3, step=1,
+                            minimum=1, maximum=20, value=5, step=1,
                             label="最大对话轮次"
                         )
                         num_strategies = gr.Slider(
@@ -492,17 +492,32 @@ def build_ui():
                     result_dd = gr.Dropdown(
                         choices=get_result_dirs(),
                         label="选择运行记录",
+                        scale=3,
                     )
-                    refresh_results_btn = gr.Button("🔄 刷新", variant="secondary")
+                    refresh_results_btn = gr.Button("🔄 刷新", variant="secondary", scale=1)
+                    delete_btn = gr.Button("🗑️ 删除", variant="stop", scale=1)
 
                 result_detail = gr.Markdown("选择运行记录后显示结果")
+                delete_msg = gr.Markdown("")
 
                 def refresh_results():
                     return gr.update(choices=get_result_dirs())
 
+                def delete_result(run_name):
+                    if not run_name:
+                        return "⚠️ 请先选择要删除的运行记录", gr.update(choices=get_result_dirs())
+                    run_dir = AGENTLAB_DIR / "agentlab_results" / run_name
+                    if not run_dir.exists():
+                        return f"⚠️ 记录 {run_name} 不存在", gr.update(choices=get_result_dirs())
+                    import shutil
+                    shutil.rmtree(run_dir)
+                    return f"✅ 已删除: {run_name}", gr.update(choices=get_result_dirs())
+
                 result_dd.change(load_results, inputs=[result_dd],
                                outputs=[result_detail, result_dd])
                 refresh_results_btn.click(refresh_results, outputs=[result_dd])
+                delete_btn.click(delete_result, inputs=[result_dd],
+                               outputs=[delete_msg, result_dd])
 
             # ==================== Tab 5: 使用说明 ====================
             with gr.Tab("📖 使用说明"):
