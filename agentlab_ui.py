@@ -411,7 +411,7 @@ def build_ui():
                             label="API Key",
                             placeholder="sk-...",
                             type="password",
-                            value="sk-2207bf00d9eb4fa39bda717e3ea76144"
+                            value="sk-6799a25bc3914c90b8180de78e5630fa"
                         )
                         base_url = gr.Textbox(
                             label="Base URL (OpenAI 兼容)",
