@@ -180,25 +180,25 @@ VICTIM_PRESETS = {
 
 CONFIG = {
     "attacker": {
-        "base_url": "http://localhost:8000/v1",
+        "base_url": "https://api.deepseek.com",
         "api_key": None,
-        "api_key_env": "OPENAI_API_KEY",
-        "model": "huihui-ai/Huihui-Qwen3-14B-abliterated-v2",
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "model": "deepseek-v4-pro",
         "temperature": 0.3,
     },
     "planner": {
-        "base_url": None,
+        "base_url": "https://api.deepseek.com",
         "api_key": None,
-        "api_key_env": "OPENAI_API_KEY",
-        "model": "gpt-5.1",
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "model": "deepseek-v4-pro",
         "temperature": 0.5,
         "num_strategies": 2,
     },
     "judge": {
-        "base_url": None,
+        "base_url": "https://api.deepseek.com",
         "api_key": None,
-        "api_key_env": "OPENAI_API_KEY",
-        "model": "gpt-5.1",
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "model": "deepseek-v4-pro",
         "temperature": 0,
     },
     "textgrad": {
@@ -1177,9 +1177,9 @@ def run_for_victims(attacks: List[Dict], victim_map: Dict[str, Dict],
 # ==========================================
 def check_keys(victim_map: Dict[str, Dict]) -> List[str]:
     missing = []
-    # Planner / judge always need OpenAI
-    if not os.environ.get("OPENAI_API_KEY"):
-        missing.append("OPENAI_API_KEY (planner/judge)")
+    # Planner / judge always need API key
+    if not os.environ.get("DEEPSEEK_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+        missing.append("DEEPSEEK_API_KEY or OPENAI_API_KEY (planner/judge/attacker)")
     for vname, vcfg in victim_map.items():
         prov = vcfg.get("provider") or detect_provider(vcfg["model"])
         if prov == "anthropic" and not os.environ.get("ANTHROPIC_API_KEY"):
@@ -1224,14 +1224,14 @@ EXAMPLES:
                         help="Run against all preset victims (default if no --victim)")
 
     # attacker
-    parser.add_argument("--attacker_url", default="http://localhost:8000/v1",
-                        help="vLLM URL for abliterated attacker model")
+    parser.add_argument("--attacker_url", default="https://api.deepseek.com",
+                        help="Base URL for attacker model API")
     parser.add_argument("--attacker_model",
-                        default="huihui-ai/Huihui-Qwen3-14B-abliterated-v2",
+                        default="deepseek-v4-pro",
                         help="Attacker model ID")
 
     # planner / judge
-    parser.add_argument("--planner_judge_model", default="gpt-5.1",
+    parser.add_argument("--planner_judge_model", default="deepseek-v4-pro",
                         help="Model for planner and judge")
     parser.add_argument("--planner_judge_url", default=None,
                         help="Base URL override for planner and judge API (e.g. DeepSeek)")

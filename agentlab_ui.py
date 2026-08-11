@@ -216,6 +216,7 @@ def run_attack(script, api_key, base_url, victim_model, attacker_url, attacker_m
 
     env = os.environ.copy()
     env["OPENAI_API_KEY"] = api_key
+    env["DEEPSEEK_API_KEY"] = api_key
     if base_url:
         env["OPENAI_BASE_URL"] = base_url
 
@@ -229,7 +230,7 @@ def run_attack(script, api_key, base_url, victim_model, attacker_url, attacker_m
             cmd += ["--planner_judge_url", base_url]
         if attacker_url:
             cmd += ["--attacker_url", attacker_url]
-            cmd += ["--attacker_model", attacker_model or "deepseek-chat"]
+            cmd += ["--attacker_model", attacker_model or "deepseek-v4-pro"]
         cmd += ["--num_samples", str(num_samples)]
         cmd += ["--max_turns", str(max_turns)]
         cmd += ["--num_strategies", str(num_strategies)]
@@ -414,8 +415,8 @@ def build_ui():
                         )
                         base_url = gr.Textbox(
                             label="Base URL (OpenAI 兼容)",
-                            value="https://api.deepseek.com/v1",
-                            placeholder="https://api.deepseek.com/v1"
+                            value="https://api.deepseek.com",
+                            placeholder="https://api.deepseek.com"
                         )
 
                         gr.Markdown("### ⚙️ 攻击脚本")
@@ -428,19 +429,19 @@ def build_ui():
                         gr.Markdown("### 🤖 模型配置")
                         victim_model = gr.Textbox(
                             label="受害模型 (Victim)",
-                            value="deepseek-chat"
+                            value="deepseek-v4-pro"
                         )
                         attacker_url = gr.Textbox(
                             label="攻击者 API URL",
-                            value="https://api.deepseek.com/v1"
+                            value="https://api.deepseek.com"
                         )
                         attacker_model = gr.Textbox(
                             label="攻击者模型",
-                            value="deepseek-chat"
+                            value="deepseek-v4-pro"
                         )
                         planner_model = gr.Textbox(
                             label="Planner/Judge 模型",
-                            value="deepseek-chat"
+                            value="deepseek-v4-pro"
                         )
 
                     with gr.Column(scale=1):
@@ -519,7 +520,7 @@ def build_ui():
 
 ### 3. 运行攻击
 - **API 配置**: 输入你的 API Key 和 Base URL
-  - DeepSeek: `https://api.deepseek.com/v1`, 模型 `deepseek-chat`
+  - DeepSeek: `https://api.deepseek.com`, 模型 `deepseek-v4-pro`
   - OpenAI: 默认 URL, 模型 `gpt-4o` / `gpt-5.1`
   - 本地 vLLM: `http://localhost:8000/v1`
 - **选择脚本**: Intent-Hijacking / Tool-chaining / Memory-Poisoning
