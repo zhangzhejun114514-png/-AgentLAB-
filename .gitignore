@@ -18,9 +18,6 @@ env/
 *.swp
 *.swo
 
-# Results / outputs
-agentlab_results/
-
 # OS
 .DS_Store
 Thumbs.db

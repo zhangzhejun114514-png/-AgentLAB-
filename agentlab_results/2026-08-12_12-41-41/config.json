@@ -1,0 +1,32 @@
+{
+  "attacker": {
+    "base_url": "https://api.deepseek.com",
+    "api_key": null,
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "model": "deepseek-v4-pro",
+    "temperature": 0.3
+  },
+  "planner": {
+    "base_url": "https://api.deepseek.com",
+    "api_key": null,
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "model": "deepseek-v4-pro",
+    "temperature": 0.5,
+    "num_strategies": 2
+  },
+  "judge": {
+    "base_url": "https://api.deepseek.com",
+    "api_key": null,
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "model": "deepseek-v4-pro",
+    "temperature": 0
+  },
+  "textgrad": {
+    "enabled": false,
+    "max_refinements_per_turn": 3
+  },
+  "attack": {
+    "max_turns": 10,
+    "success_threshold": 4
+  }
+}
