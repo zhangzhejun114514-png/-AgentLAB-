@@ -212,15 +212,15 @@ def validate_config(api_key, base_url, victim_model, attacker_url, planner_model
 
     results = []
 
-    # 检查 base_url 是否包含错误的 /v1 后缀
-    if base_url and "deepseek" in base_url and "/v1" in base_url:
-        results.append(f"❌ base_url 含错误 /v1 后缀: {base_url}")
-        results.append(f"   正确值应为: https://api.deepseek.com")
-        return "\n".join(results)
-    if attacker_url and "deepseek" in attacker_url and "/v1" in attacker_url:
-        results.append(f"❌ attacker_url 含错误 /v1 后缀: {attacker_url}")
-        results.append(f"   正确值应为: https://api.deepseek.com")
-        return "\n".join(results)
+    # 自动检测并修正 DeepSeek base_url 中的错误 /v1 后缀
+    if base_url and "deepseek" in base_url and base_url.rstrip('/').endswith('/v1'):
+        corrected = base_url.rstrip('/')[:-3]
+        results.append(f"⚠ base_url 含错误 /v1 后缀，已自动修正: {base_url} → {corrected}")
+        base_url = corrected
+    if attacker_url and "deepseek" in attacker_url and attacker_url.rstrip('/').endswith('/v1'):
+        corrected = attacker_url.rstrip('/')[:-3]
+        results.append(f"⚠ attacker_url 含错误 /v1 后缀，已自动修正: {attacker_url} → {corrected}")
+        attacker_url = corrected
 
     # 发送 1 次测试调用
     results.append(f"🔍 正在验证配置（1 次 API 调用，成本 ~0.62 CNY）...")
@@ -260,6 +260,12 @@ def run_attack(script, api_key, base_url, victim_model, attacker_url, attacker_m
 
     if not api_key:
         return "❌ 错误: 请输入 API Key"
+
+    # 自动修正 DeepSeek base_url 中的错误 /v1 后缀
+    if base_url and "deepseek" in base_url and base_url.rstrip('/').endswith('/v1'):
+        base_url = base_url.rstrip('/')[:-3]
+    if attacker_url and "deepseek" in attacker_url and attacker_url.rstrip('/').endswith('/v1'):
+        attacker_url = attacker_url.rstrip('/')[:-3]
 
     # 成本警告 - 硬上限 10 CNY
     estimated_calls = num_samples * max_turns * 3 + num_strategies
