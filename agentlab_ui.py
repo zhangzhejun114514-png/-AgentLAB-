@@ -207,12 +207,21 @@ run_output_lines = []
 
 def run_attack(script, api_key, base_url, victim_model, attacker_url, attacker_model,
                planner_model, num_samples, max_turns, num_strategies, success_threshold,
-               no_textgrad, sequential):
+               no_textgrad, sequential, lightweight_mode):
     global run_process, run_output_lines
     run_output_lines = []
 
     if not api_key:
         return "❌ 错误: 请输入 API Key"
+
+    # 成本警告 - 硬上限 10 CNY
+    estimated_calls = num_samples * max_turns * 3 + num_strategies
+    estimated_cost = num_samples * max_turns * 0.04 + num_strategies * 0.02
+    if estimated_cost > 10:
+        return f"❌ 预估成本 ({estimated_cost:.2f} CNY) 超过预算上限 (10.00 CNY)，请调低样本数或轮次，或开启轻量模式"
+    # 额外安全阈值：超过 50 次 API 调用给出警告
+    if estimated_calls > 50:
+        return f"❌ 预估API调用次数 ({estimated_calls}) 过多，请调低样本数或轮次，或开启轻量模式"
 
     env = os.environ.copy()
     env["OPENAI_API_KEY"] = api_key
@@ -239,6 +248,9 @@ def run_attack(script, api_key, base_url, victim_model, attacker_url, attacker_m
             cmd += ["--no_textgrad"]
         if sequential:
             cmd += ["--sequential"]
+        if lightweight_mode:
+            cmd += ["--lightweight"]
+        cmd += ["--budget_cny", "10.0"]
     elif script == "Memory-Poisoning.py":
         cmd += ["--target_samples", str(num_samples)]
     elif script == "Tool-chaining.py":
@@ -342,6 +354,7 @@ def build_ui():
     with gr.Blocks(title="AgentLAB 可视化运行平台") as app:
         gr.Markdown("# 🛡️ AgentLAB 可视化运行平台")
         gr.Markdown("LLM Agent 长程攻击基准测试 — 浏览数据集、配置参数、运行攻击")
+        gr.Markdown("> ⚠️ **注意**：每次运行前请填写 API Key，默认开启轻量模式，预算上限 **10 CNY**。拖动滑块可实时查看成本预估。")
 
         with gr.Tabs():
             # ==================== Tab 1: 数据集浏览 ====================
@@ -409,9 +422,9 @@ def build_ui():
                         gr.Markdown("### 🔑 API 配置")
                         api_key = gr.Textbox(
                             label="API Key",
-                            placeholder="sk-...",
+                            placeholder="sk-... 请手动输入，不会自动保存",
                             type="password",
-                            value="sk-6799a25bc3914c90b8180de78e5630fa"
+                            value=""
                         )
                         base_url = gr.Textbox(
                             label="Base URL (OpenAI 兼容)",
@@ -447,16 +460,16 @@ def build_ui():
                     with gr.Column(scale=1):
                         gr.Markdown("### 🎯 攻击参数")
                         num_samples = gr.Slider(
-                            minimum=1, maximum=200, value=10, step=1,
-                            label="样本数量"
+                            minimum=1, maximum=200, value=5, step=1,
+                            label="样本数量 (推荐 ≤5)"
                         )
                         max_turns = gr.Slider(
-                            minimum=1, maximum=20, value=5, step=1,
-                            label="最大对话轮次"
+                            minimum=1, maximum=20, value=3, step=1,
+                            label="最大对话轮次 (推荐 ≤3, 每轮=3次API调用)"
                         )
                         num_strategies = gr.Slider(
                             minimum=1, maximum=5, value=1, step=1,
-                            label="策略数量"
+                            label="策略数量 (推荐 1)"
                         )
                         success_threshold = gr.Slider(
                             minimum=1, maximum=5, value=4, step=1,
@@ -464,6 +477,14 @@ def build_ui():
                         )
                         no_textgrad = gr.Checkbox(label="禁用 TextGrad", value=True)
                         sequential = gr.Checkbox(label="顺序执行 (非并行)", value=True)
+                        lightweight_mode = gr.Checkbox(
+                            label="⚡ 轻量模式 (max_turns=2, 样本≤3, 最快最省)",
+                            value=True
+                        )
+                        cost_estimate = gr.Markdown(
+                            "💰 **预估成本**: 样本×轮次×0.04 + 策略×0.02 ≈ **0.62 CNY**\n"
+                            "  💳 预算上限: **10.00 CNY** — 当前设置安全"
+                        )
 
                         with gr.Row():
                             run_btn = gr.Button("🚀 开始攻击", variant="primary", size="lg")
@@ -480,7 +501,18 @@ def build_ui():
 
                 run_args = [script, api_key, base_url, victim_model, attacker_url, attacker_model,
                            planner_model, num_samples, max_turns, num_strategies,
-                           success_threshold, no_textgrad, sequential]
+                           success_threshold, no_textgrad, sequential, lightweight_mode]
+
+                # 成本预估更新函数
+                def update_cost_estimate(n, t, s):
+                    calls = n * t * 3 + s
+                    cost = n * t * 0.04 + s * 0.02
+                    safe = "✅ 安全" if cost <= 10 else "❌ 超预算"
+                    return f"💰 **预估成本**: {n}×{t}×0.04 + {s}×0.02 ≈ **{cost:.2f} CNY**\n  💳 预算上限: **10.00 CNY** — {safe}"
+
+                num_samples.change(update_cost_estimate, inputs=[num_samples, max_turns, num_strategies], outputs=[cost_estimate])
+                max_turns.change(update_cost_estimate, inputs=[num_samples, max_turns, num_strategies], outputs=[cost_estimate])
+                num_strategies.change(update_cost_estimate, inputs=[num_samples, max_turns, num_strategies], outputs=[cost_estimate])
 
                 run_btn.click(run_attack_async, inputs=run_args, outputs=[output_box])
                 stop_btn.click(stop_attack, outputs=[output_box])
