@@ -1254,6 +1254,8 @@ EXAMPLES:
                         help="Ultra-light mode: max_turns=2, num_strategies=1, num_samples=3")
     parser.add_argument("--budget_cny", type=float, default=10.0,
                         help="Hard budget cap in CNY (default=10). Estimated cost per call: ~0.01 CNY")
+    parser.add_argument("--skip_validation", action="store_true",
+                        help="Skip config validation probe (NOT recommended, costs ~0.62 CNY but saves ~500 CNY)")
 
     # output
     parser.add_argument("--output_dir", default=None)
@@ -1336,6 +1338,45 @@ EXAMPLES:
             print(f"  - {k}")
         print(f"\n{YELLOW}Set them and retry.{ENDC}")
         return
+
+    # ---------- CONFIG VALIDATION (1 API call per victim, ~0.62 CNY) ----------
+    # 先用 1 次调用验证配置正确，避免像上次一样 500 元全部浪费
+    if not args.skip_validation:
+        print(f"\n{CYAN}[配置验证] 正在发送 1 次测试调用验证每个 Victim 配置...{ENDC}")
+        validation_passed = True
+        for vname, vcfg in victim_map.items():
+            try:
+                test_victim = VictimModel(
+                    provider=vcfg.get("provider", "openai"),
+                    model=vcfg["model"],
+                    api_key_env=vcfg.get("api_key_env"),
+                    base_url=vcfg.get("base_url"),
+                )
+                test_resp = test_victim.generate_response("Hello, please respond with 'OK'.")
+                if "[Error" in test_resp or "error" in test_resp.lower()[:20]:
+                    print(f"{RED}  ✗ {vname}: 响应异常 → {test_resp[:100]}{ENDC}")
+                    validation_passed = False
+                else:
+                    print(f"{GREEN}  ✓ {vname}: 配置正确，响应正常 ({len(test_resp)} chars){ENDC}")
+            except Exception as e:
+                print(f"{RED}  ✗ {vname}: 调用失败 → {e}{ENDC}")
+                validation_passed = False
+
+        # 同时验证 Planner/Attacker 的 base_url
+        for role_name, role_cfg in [("Planner", CONFIG["planner"]), ("Attacker", CONFIG["attacker"])]:
+            url = role_cfg.get("base_url", "")
+            if "/v1" in url and "deepseek" in url:
+                print(f"{RED}  ✗ {role_name} base_url 含错误 /v1 后缀: {url}{ENDC}")
+                print(f"{RED}    正确值应为: https://api.deepseek.com{ENDC}")
+                validation_passed = False
+
+        if not validation_passed:
+            print(f"\n{RED}{'='*60}")
+            print(f"配置验证失败！请修复以上问题后再运行。")
+            print(f"使用 --skip_validation 可跳过验证（不推荐）。")
+            print(f"{'='*60}{ENDC}")
+            sys.exit(1)
+        print(f"{GREEN}[配置验证] 全部通过，开始正式运行。{ENDC}\n")
 
     # ---------- output dirs ----------
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
