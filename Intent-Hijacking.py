@@ -132,6 +132,8 @@ def detect_provider(model_id: str) -> str:
         return "gemini"
     if any(x in m for x in ['gpt', 'o3', 'o4', 'o1']):
         return "openai"
+    if 'deepseek' in m:
+        return "openai"  # DeepSeek uses OpenAI-compatible API
     # local / vLLM models
     return "local"
 
@@ -143,6 +145,28 @@ def is_gpt5_or_newer(model_id: str) -> bool:
 # CONFIG
 # ==========================================
 VICTIM_PRESETS = {
+    # DeepSeek models (OpenAI-compatible API)
+    "deepseek-v4-pro": {
+        "provider": "openai",
+        "model": "deepseek-v4-pro",
+        "base_url": "https://api.deepseek.com",
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "temperature": 0,
+    },
+    "deepseek-chat": {
+        "provider": "openai",
+        "model": "deepseek-chat",
+        "base_url": "https://api.deepseek.com",
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "temperature": 0,
+    },
+    "deepseek-reasoner": {
+        "provider": "openai",
+        "model": "deepseek-reasoner",
+        "base_url": "https://api.deepseek.com",
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "temperature": 0,
+    },
     # OpenAI models
     "gpt-5.1": {
         "provider": "openai",
@@ -403,6 +427,11 @@ class OpenAIAgent:
     def __init__(self, config: Dict):
         self.model = config["model"]
         base_url = config.get("base_url")
+        # 自动检测并修正错误的 /v1 后缀
+        if base_url and "deepseek" in base_url and base_url.rstrip('/').endswith('/v1'):
+            corrected = base_url.rstrip('/')[:-3]
+            logger.warning(f"Agent base_url 含错误 /v1 后缀，自动修正: {base_url} → {corrected}")
+            base_url = corrected
         api_key = config.get("api_key") or os.environ.get(config.get("api_key_env", "OPENAI_API_KEY"), "EMPTY")
         if base_url:
             self.client = OpenAI(api_key=api_key, base_url=base_url)
@@ -449,6 +478,11 @@ class VictimModel:
         # ---------- provider-specific init ----------
         if self.provider == "openai" or self.provider == "local":
             base_url = config.get("base_url")
+            # 自动检测并修正错误的 /v1 后缀（DeepSeek API 不需要 /v1）
+            if base_url and "deepseek" in base_url and base_url.rstrip('/').endswith('/v1'):
+                corrected = base_url.rstrip('/')[:-3]
+                logger.warning(f"Victim base_url 含错误 /v1 后缀，自动修正: {base_url} → {corrected}")
+                base_url = corrected
             api_key = config.get("api_key") or os.environ.get(
                 config.get("api_key_env", "OPENAI_API_KEY"), "EMPTY")
             if base_url:
@@ -1327,8 +1361,20 @@ EXAMPLES:
     # If a single custom URL was given and exactly one victim, apply it
     if args.victim_url and len(victim_map) == 1:
         name = list(victim_map.keys())[0]
-        victim_map[name]["base_url"] = args.victim_url
-        victim_map[name]["provider"] = "local"
+        url = args.victim_url
+        # 拦截 DeepSeek URL 中的错误 /v1 后缀
+        if "deepseek" in url and url.rstrip('/').endswith('/v1'):
+            url = url.rstrip('/')[:-3]
+            print(f"{YELLOW}[URL修正] victim_url 含错误 /v1 后缀，已自动修正: {args.victim_url} → {url}{ENDC}")
+        victim_map[name]["base_url"] = url
+        victim_map[name]["provider"] = "openai" if "deepseek" in url else "local"
+
+    # 对所有 victim 配置进行 /v1 后缀检查
+    for vname, vcfg in victim_map.items():
+        url = vcfg.get("base_url", "")
+        if url and "deepseek" in url and url.rstrip('/').endswith('/v1'):
+            vcfg["base_url"] = url.rstrip('/')[:-3]
+            print(f"{YELLOW}[URL修正] {vname} base_url 含错误 /v1 后缀，已修正: {url} → {vcfg['base_url']}{ENDC}")
 
     # ---------- check keys ----------
     missing = check_keys(victim_map)
