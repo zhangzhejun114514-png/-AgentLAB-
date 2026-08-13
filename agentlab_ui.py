@@ -205,6 +205,53 @@ def get_env_detail(env_name):
 run_process = None
 run_output_lines = []
 
+def validate_config(api_key, base_url, victim_model, attacker_url, planner_model):
+    """配置验证：发送 1 次 API 调用，检查配置是否正确。成本 ~0.62 CNY。"""
+    if not api_key:
+        return "❌ 请先输入 API Key"
+
+    results = []
+
+    # 检查 base_url 是否包含错误的 /v1 后缀
+    if base_url and "deepseek" in base_url and "/v1" in base_url:
+        results.append(f"❌ base_url 含错误 /v1 后缀: {base_url}")
+        results.append(f"   正确值应为: https://api.deepseek.com")
+        return "\n".join(results)
+    if attacker_url and "deepseek" in attacker_url and "/v1" in attacker_url:
+        results.append(f"❌ attacker_url 含错误 /v1 后缀: {attacker_url}")
+        results.append(f"   正确值应为: https://api.deepseek.com")
+        return "\n".join(results)
+
+    # 发送 1 次测试调用
+    results.append(f"🔍 正在验证配置（1 次 API 调用，成本 ~0.62 CNY）...")
+    results.append(f"   Victim: {victim_model}")
+    results.append(f"   base_url: {base_url}")
+    results.append(f"   Attacker URL: {attacker_url}")
+    results.append("")
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(
+            api_key=api_key,
+            base_url=base_url or "https://api.deepseek.com"
+        )
+        resp = client.chat.completions.create(
+            model=victim_model,
+            messages=[{"role": "user", "content": "Hello, please respond with 'OK'."}],
+            max_tokens=10,
+            temperature=0
+        )
+        response_text = resp.choices[0].message.content.strip()
+        results.append(f"✅ Victim 模型响应正常: \"{response_text}\"")
+        results.append(f"✅ 配置验证通过！可以安全运行攻击。")
+        results.append(f"💰 验证花费: ~0.62 CNY（避免了上次 500 CNY 的惨剧）")
+    except Exception as e:
+        results.append(f"❌ Victim 调用失败: {e}")
+        results.append(f"❌ 配置验证未通过！请修复后再运行。")
+        results.append(f"💡 常见问题: base_url 不要带 /v1, API Key 需有余额")
+
+    return "\n".join(results)
+
 def run_attack(script, api_key, base_url, victim_model, attacker_url, attacker_model,
                planner_model, num_samples, max_turns, num_strategies, success_threshold,
                no_textgrad, sequential, lightweight_mode):
@@ -487,9 +534,18 @@ def build_ui():
                         )
 
                         with gr.Row():
+                            validate_btn = gr.Button("🔍 配置验证 (1次调用~0.62元)", variant="secondary")
                             run_btn = gr.Button("🚀 开始攻击", variant="primary", size="lg")
                             stop_btn = gr.Button("⏹️ 停止", variant="stop")
                             poll_btn = gr.Button("📡 刷新输出", variant="secondary")
+
+                gr.Markdown("### 📋 配置验证结果")
+                validation_box = gr.Textbox(
+                    label="验证结果（运行攻击前务必先验证）",
+                    lines=8,
+                    interactive=False,
+                    placeholder="点击上方「配置验证」按钮，发送 1 次 API 调用验证配置是否正确。这会花费约 0.62 CNY，但能避免因配置错误浪费数百元。",
+                )
 
                 gr.Markdown("### 📜 运行输出")
                 output_box = gr.Textbox(
@@ -514,6 +570,7 @@ def build_ui():
                 max_turns.change(update_cost_estimate, inputs=[num_samples, max_turns, num_strategies], outputs=[cost_estimate])
                 num_strategies.change(update_cost_estimate, inputs=[num_samples, max_turns, num_strategies], outputs=[cost_estimate])
 
+                validate_btn.click(validate_config, inputs=[api_key, base_url, victim_model, attacker_url, planner_model], outputs=[validation_box])
                 run_btn.click(run_attack_async, inputs=run_args, outputs=[output_box])
                 stop_btn.click(stop_attack, outputs=[output_box])
                 poll_btn.click(get_run_output, outputs=[output_box])
